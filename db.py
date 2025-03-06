@@ -15,20 +15,11 @@ def init_db():
 db = init_db()
 
 def load_conversation_history(student_id):
-    try:
-        conversations = list(db.conversations.find({"student_id": student_id}))
-        print(f"📚 数据库查询结果：{conversations}")
-    except Exception as e:
-        print(f"❌ 加载历史记录失败: {e}")
-    # 缓存历史对话数据1小时
+    return list(db.conversations.find(
+        {"student_id": student_id},
+        {"_id": 0, "conversation_id": 1, "title": 1, "timestamp": 1}
+    ).sort("timestamp", -1))
 
-    @st.cache_data(ttl=3600)
-    def _load():
-        return list(db.conversations.find(
-            {"student_id": student_id},
-            {"_id": 0, "conversation_id": 1, "title": 1, "timestamp": 1}
-        ).sort("timestamp", -1))
-    return _load()
 
 def save_conversation(conversation):
     try:
