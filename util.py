@@ -5,4 +5,4 @@ MONGO_URI="mongodb+srv://testaccess:123321@wzy.idzma.mongodb.net/?retryWrites=tr
 DB_NAME='db_test'
 
 # DeepSeek API密钥
-DEEPSEEK_API_KEY='sk-719621e0d17c4d39b0aa6a0ad3f21421'
+DEEPSEEK_API_KEY='sk-2GccdRh8vQcgEJqa2051168aF8E44bCfB012C959E73681F0'
