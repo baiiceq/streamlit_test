@@ -1,3 +1,4 @@
 streamlit==1.39.0
 tenacity==9.0.0
 python-dotenv
+pymongo
