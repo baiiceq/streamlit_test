@@ -12,3 +12,5 @@ def get_recent_context(conversation):
     last_five_msgs = conversation["messages"][-5:]
     context = "\n".join([f"{m['role']}: {m['content']}" for m in last_five_msgs])
     return f"【对话摘要】\n{summary}\n\n【近期对话】\n{context}\n\n【学生提问】"
+
+
