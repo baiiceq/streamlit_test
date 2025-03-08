@@ -8,6 +8,7 @@ import config  # 加载环境变量和日志配置
 import db  # 数据库操作
 import api  # API调用及标题生成
 import ui  # UI 辅助函数
+import util
 
 
 def main():
@@ -21,7 +22,8 @@ def main():
             "student_id": "",
             "title": "新对话",
             "messages": [],
-            "timestamp": datetime.now()
+            "timestamp": datetime.now(),
+            "summary": ""
         },
         "selected_page": "chat",
         "report_generated": False,
@@ -31,42 +33,54 @@ def main():
         if key not in st.session_state:
             st.session_state[key] = value
 
-    # 侧边栏：学号输入、历史记录、页面切换等
     with st.sidebar:
+        # 页面切换
+        page_options = ["💬 即时问答", "📊 学情报告"]
+        page = st.radio("页面", page_options, index=0 if st.session_state.selected_page == "chat" else 1)
+        st.session_state.selected_page = "chat" if page == page_options[0] else "report"
 
-        page = st.radio("页面", ["💬 即时问答", "📊 学情报告"],
-                        index=0 if st.session_state.selected_page == "chat" else 1)
-        st.session_state.selected_page = "chat" if page.startswith("💬") else "report"
-
+        # 学号输入与验证
         st.header("历史对话")
         student_id = st.text_input("学号（8位数字）", key="student_id")
-        if student_id:
-            if not ui.validate_student_id(student_id):
-                st.error("学号格式错误")
-                st.stop()
+        if student_id and not ui.validate_student_id(student_id):
+            st.error("学号格式错误")
+            st.stop()
 
+        # 加载历史对话
+        if student_id:
             st.session_state.current_conversation["student_id"] = student_id
             conversations = db.load_conversation_history(student_id)
+
+            # 新建对话按钮
             if st.button("➕ 新建对话"):
-                new_conv = {
+                st.session_state.current_conversation = {
                     "conversation_id": str(uuid.uuid4()),
                     "student_id": student_id,
                     "title": "新对话",
                     "messages": [],
-                    "timestamp": datetime.now()
+                    "timestamp": datetime.now(),
+                    "summary": ""
                 }
-                st.session_state.current_conversation = new_conv
                 st.rerun()
 
+            # 显示历史记录
             st.subheader("历史记录")
             st.markdown('<div class="history-container">', unsafe_allow_html=True)
             for conv in conversations:
+                col1, col2 = st.columns([5, 1])
                 btn_text = f"{conv['title']} - {conv['timestamp'].strftime('%m-%d %H:%M')}"
-                if st.button(btn_text, key=conv["conversation_id"], help="点击查看该历史对话"):
-                    selected = db.db.conversations.find_one({"conversation_id": conv["conversation_id"]})
-                    if selected:
-                        st.session_state.current_conversation = selected
-                        st.rerun()
+
+                with col1:
+                    if st.button(btn_text, key=f"hist_{conv['conversation_id']}", help="点击查看该历史对话"):
+                        selected_conv = db.db.conversations.find_one({"conversation_id": conv["conversation_id"]})
+                        if selected_conv:
+                            st.session_state.current_conversation = selected_conv
+                            st.rerun()
+
+                with col2:
+                    if conv.get("summary"):
+                        st.markdown("ℹ️", help=conv["summary"])
+
             st.markdown('</div>', unsafe_allow_html=True)
 
     # 主界面：分为聊天内容和底部固定的输入栏
@@ -82,34 +96,42 @@ def main():
 
             prompt = st.chat_input("输入你的C语言问题...")
 
-            # 当用户输入问题后，立即把用户消息保存到数据库，确保对话历史能即时更新
             if prompt:
                 user_msg = {"role": "user", "content": prompt}
                 st.session_state.current_conversation["messages"].append(user_msg)
                 st.session_state.current_conversation["timestamp"] = datetime.now()
                 db.save_conversation(st.session_state.current_conversation)
+                st.session_state.refresh_sidebar = True
 
                 with st.spinner("🧠 老师思考中..."):
                     try:
-                        ai_response = api.get_deepseek_response(prompt)
+                        full_prompt = util.get_recent_context(st.session_state.current_conversation) + prompt
+                        ai_response = api.get_deepseek_response(full_prompt)
                         ai_msg = {"role": "assistant", "content": ai_response}
                         st.session_state.current_conversation["messages"].append(ai_msg)
 
-                        # 更新对话标题
-                        if len(st.session_state.current_conversation["messages"]) == 1:
-                            new_title = api.generate_conversation_title(prompt)
+                        # 更新标题和摘要
+                        current_conv = st.session_state.current_conversation
+                        if len(st.session_state.current_conversation["messages"]) <= 1:
+                            new_title = api.generate_conversation_title(prompt + ai_response)
                             st.session_state.current_conversation["title"] = new_title
+                            summary = api.generate_conversation_summary(current_conv )
+                            current_conv["summary"] = summary
                         elif len(st.session_state.current_conversation["messages"]) % 3 == 0:
                             last_msgs = " ".join(
-                                [m["content"] for m in st.session_state.current_conversation["messages"][-3:]])
+                                [m["content"] for m in st.session_state.current_conversation["messages"][-6:]])
                             new_title = api.generate_conversation_title(last_msgs)
                             st.session_state.current_conversation["title"] = new_title
+                            summary = api.generate_conversation_summary(current_conv)
+                            current_conv["summary"] = summary
 
                         st.session_state.current_conversation["timestamp"] = datetime.now()
-                        db.save_conversation(st.session_state.current_conversation)
+
+                        db.save_conversation(current_conv)
                         st.rerun()
                     except Exception as e:
                         st.error("回答生成失败")
+                        logging.error(f"生成标题失败1: {str(e)}")
         else:
             # 学情报告页面的代码逻辑
             st.header("📊 学习分析报告")
@@ -120,6 +142,8 @@ def main():
                         try:
                             history = "\n".join([f"{m['role']}: {m['content']}" for m in
                                                  st.session_state.current_conversation["messages"]])
+                            if st.session_state.current_conversation.get("summary"):
+                                history = f"【对话摘要】\n{st.session_state.current_conversation['summary']}\n\n【完整对话】\n" + history
                             prompt = f"""根据以下对话生成学习报告：
 {history}
 
@@ -143,3 +167,5 @@ def main():
 
 if __name__ == "__main__":
     main()
+
+

@@ -15,14 +15,11 @@ def init_db():
 db = init_db()
 
 def load_conversation_history(student_id):
-    # 缓存历史对话数据1小时
-    @st.cache_data(ttl=3600)
-    def _load():
-        return list(db.conversations.find(
-            {"student_id": student_id},
-            {"_id": 0, "conversation_id": 1, "title": 1, "timestamp": 1}
-        ).sort("timestamp", -1))
-    return _load()
+    return list(db.conversations.find(
+        {"student_id": student_id},
+        {"_id": 0, "conversation_id": 1, "title": 1, "timestamp": 1}
+    ).sort("timestamp", -1))
+
 
 def save_conversation(conversation):
     try:
@@ -35,3 +32,35 @@ def save_conversation(conversation):
         import logging, streamlit as st
         logging.error(f"保存失败: {str(e)}")
         st.error("自动保存失败，请及时截图")
+
+
+def cleanup_old_summaries(max_length=500):
+    """自动截断过长的对话摘要"""
+    from pymongo import UpdateMany
+
+    try:
+        # 1. 批量获取需要清理的对话
+        filter_criteria = {"summary": {"$exists": True}}
+        projections = {"summary": 1}
+
+        # 2. 使用批量操作提升效率
+        update_operations = []
+        for conv in db.conversations.find(filter_criteria, projections):
+            if len(conv.get("summary", "")) > max_length:
+                new_summary = conv["summary"][:max_length] + "..."
+                update_operations.append(
+                    UpdateMany(
+                        {"_id": conv["_id"]},
+                        {"$set": {"summary": new_summary}}
+                    )
+                )
+
+        # 3. 批量执行更新
+        if update_operations:
+            db.conversations.bulk_write(update_operations)
+
+        return len(update_operations)  # 返回清理数量
+
+    except Exception as e:
+        print(f"摘要清理失败: {str(e)}")
+        return 0
