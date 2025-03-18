@@ -7,3 +7,4 @@ tenacity
 langchain
 pathlib
 wordcloud
+plotly_express
