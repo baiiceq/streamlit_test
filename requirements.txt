@@ -3,3 +3,6 @@ tenacity==9.0.0
 python-dotenv
 pymongo
 OpenAI
+tenacity
+langchain
+pathlib
