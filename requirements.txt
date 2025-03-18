@@ -5,6 +5,7 @@ pymongo
 OpenAI
 tenacity
 langchain
+langchain_community
 pathlib
 wordcloud
 plotly_express
