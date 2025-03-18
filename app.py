@@ -2,6 +2,11 @@ import streamlit as st
 import uuid
 from datetime import datetime
 import logging
+import json
+from wordcloud import WordCloud
+import pandas as pd
+from wordcloud import WordCloud
+import matplotlib.pyplot as plt
 
 # 导入自定义模块
 import config  # 加载环境变量和日志配置
@@ -9,6 +14,8 @@ import db  # 数据库操作
 import api  # API调用及标题生成
 import ui  # UI 辅助函数
 import util
+import analysis
+
 
 
 def main():
@@ -135,35 +142,89 @@ def main():
         else:
             # 学情报告页面的代码逻辑
             st.header("📊 学习分析报告")
-            col1, col2 = st.columns([4, 1])
-            with col2:
-                if st.button("生成报告", disabled=st.session_state.report_generated):
-                    with st.spinner("分析中..."):
-                        try:
-                            history = "\n".join([f"{m['role']}: {m['content']}" for m in
-                                                 st.session_state.current_conversation["messages"]])
-                            if st.session_state.current_conversation.get("summary"):
-                                history = f"【对话摘要】\n{st.session_state.current_conversation['summary']}\n\n【完整对话】\n" + history
-                            prompt = f"""根据以下对话生成学习报告：
-{history}
 
-要求：
-- 分[掌握知识点][常见错误][学习建议]三部分
-- 每个部分3-5个条目
-- 使用Markdown格式"""
-                            st.session_state.analysis_content = api.get_deepseek_response(prompt)
-                            st.session_state.report_generated = True
-                            st.rerun()
-                        except Exception as e:
-                            st.error("报告生成失败")
+            # 新增时间选择行
+            time_col1, time_col2, time_col3 = st.columns([2, 2, 3])
+            with time_col1:
+                start_date = st.date_input("起始日期",
+                                           value=datetime.now(),
+                                           max_value=datetime.now())
+            with time_col2:
+                end_date = st.date_input("结束日期",
+                                         value=datetime.now(),
+                                         min_value=start_date)
+            with time_col3:
+                st.write("")  # 占位对齐
+                analyze_btn = st.button("🚀 生成时段报告",
+                                        help="分析选定时间段内的所有对话",
+                                        disabled=not st.session_state.current_conversation["student_id"])
+
+            # 错误处理
+            if start_date > end_date:
+                st.error("错误：结束日期不能早于开始日期")
+                st.stop()
+
+            # 核心分析逻辑
+            if analyze_btn:
+                with st.spinner(
+                        "正在分析{}至{}的对话记录...".format(start_date.strftime("%m/%d"), end_date.strftime("%m/%d"))):
+                    try:
+                        # 获取时间范围内的对话
+                        conversations = db.load_conversations_by_date(
+                            st.session_state.current_conversation["student_id"],
+                            start_date,
+                            end_date
+                        )
+
+                        if not conversations:
+                            st.warning("该时间段内没有可分析的对话记录")
+                            st.stop()
+
+                        report = analysis.get_student_report(conversations)
+
+                        st.session_state.analysis_content = report
+                        st.session_state.report_generated = True
+                    except Exception as e:
+                        st.error("分析失败：" + str(e))
+
+            # 展示分析结果
             if st.session_state.report_generated:
-                st.markdown(st.session_state.analysis_content)
-            else:
-                st.info("点击上方按钮生成学习报告")
-    except Exception as e:
-        st.error("系统发生错误，请刷新页面")
-        logging.exception("系统异常")
+                st.session_state.report_generated = False
+                # 报告概览卡片
+                with st.container(border=True):
+                    cols = st.columns([2,1,1,1])
+                    cols[0].metric("分析时段",
+                                   f"{start_date.strftime('%m/%d')} - {end_date.strftime('%m/%d')}")
+                    cols[1].metric("涉及对话数",
+                                   st.session_state.analysis_content["conversations_cnt"])
+                    cols[2].metric("总消息量",
+                                   st.session_state.analysis_content["messages_cnt"])
+                    cols[3].metric("核心知识点",
+                                   len(st.session_state.analysis_content["knowledges"]))
 
+                # 交互式分析面板
+                tab1, tab2, tab3 = st.tabs(["📚 知识点分析", "❗ 错误模式", "📈 学习趋势"])
+
+                with tab1:
+                    word_cloud = ui.plot_knowledge_timeline(st.session_state.analysis_content)
+                    fig, ax = plt.subplots(figsize=(10, 5))
+                    ax.imshow(word_cloud, interpolation="bilinear")
+                    ax.axis("off")
+                    st.pyplot(fig)
+                    
+
+                # 下载功能增强
+                report_json = json.dumps(st.session_state.analysis_content, ensure_ascii=False, indent=2)
+                st.download_button(
+                    label="💾 下载完整分析报告 (JSON)",
+                    data=report_json,
+                    file_name=f"learning_report_{start_date}_{end_date}.json",
+                    mime="application/json",
+                    key="full_report_download"
+                )
+    except Exception as e:
+            st.error("系统发生错误，请刷新页面: " + str(e))
+            logging.exception("系统异常")
 
 if __name__ == "__main__":
     main()

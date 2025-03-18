@@ -3,6 +3,8 @@ import streamlit as st
 from datetime import datetime
 import uuid
 import util  # 假定 util.py 中包含 MONGO_URI、DB_NAME 等常量
+from datetime import datetime
+import logging
 
 @st.cache_resource
 def init_db():
@@ -64,3 +66,17 @@ def cleanup_old_summaries(max_length=500):
     except Exception as e:
         print(f"摘要清理失败: {str(e)}")
         return 0
+
+def load_conversations_by_date(student_id, start_date, end_date):
+    """根据时间范围查询对话"""
+    try:
+        return list(db.conversations.find({
+            "student_id": student_id,
+            "timestamp": {
+                "$gte": datetime.combine(start_date, datetime.min.time()),
+                "$lte": datetime.combine(end_date, datetime.max.time())
+            }
+        }, sort=[("timestamp", 1)]))  # 按时间正序排列
+    except Exception as e:
+        logging.error(f"时间范围查询失败: {str(e)}")
+        return []

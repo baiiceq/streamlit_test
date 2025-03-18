@@ -1,4 +1,7 @@
 import streamlit as st
+import pandas as pd
+import plotly_express as px
+from wordcloud import WordCloud
 
 def display_chat_message(role, content):
     with st.chat_message(role):
@@ -60,3 +63,20 @@ def inject_custom_css():
         }
     </style>
     """, unsafe_allow_html=True)
+
+def plot_knowledge_timeline(report):
+    """绘制知识点出现时间线"""
+    text = " ".join(report["knowledges"])
+    wordcloud = WordCloud(
+        width=800, height=400,
+        background_color="white",
+        font_path="chinese.simhei.ttf"  # 中文字体路径（根据你的系统调整）
+    ).generate(text)
+
+    return wordcloud
+
+def create_activity_heatmap(conversations):
+    return 1
+
+
+
