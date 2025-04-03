@@ -1,0 +1,162 @@
+{
+    "变量": {
+        "description": "用于存储数据的标识符，需指定数据类型",
+        "examples": ["int count;", "float price = 9.99;"],
+        "related": ["数据类型", "作用域"]
+    },
+    "数据类型": {
+        "description": "定义变量存储的数据类型（如整型、浮点型、字符型）",
+        "examples": ["int num;", "char ch = 'A';", "double pi = 3.1415;"],
+        "related": ["变量", "类型转换"]
+    },
+    "运算符": {
+        "description": "执行算术、逻辑、位运算等操作的符号",
+        "examples": ["a + b", "x & y", "flag && isValid"],
+        "related": ["表达式与语句", "位操作"]
+    },
+    "表达式与语句": {
+        "description": "由操作数和运算符组成的计算单元，以分号结束的完整指令",
+        "examples": ["sum = a + b * c;", "x++;"],
+        "related": ["运算符", "函数"]
+    },
+    "输入/输出函数": {
+        "description": "标准输入输出函数（stdio.h）实现数据交互",
+        "examples": ["printf(\"Value: %d\", x);", "scanf(\"%d\", &num);"],
+        "related": ["格式字符串", "文件操作"]
+    },
+    "条件语句": {
+        "description": "根据条件执行不同代码分支",
+        "examples": ["if (x > 0) {...}", "switch (grade) {...}"],
+        "related": ["逻辑运算符", "跳转语句"]
+    },
+    "循环结构": {
+        "description": "重复执行代码块直到满足终止条件",
+        "examples": ["for (int i=0; i<10; i++)", "while (x < 100) {...}"],
+        "related": ["跳转语句", "数组"]
+    },
+    "函数": {
+        "description": "封装可重用代码块的独立模块",
+        "examples": ["int add(int a, int b) { return a+b; }", "main() {...}"],
+        "related": ["递归函数", "参数传递"]
+    },
+    "指针": {
+        "description": "存储内存地址的变量，通过*运算符访问指向的值",
+        "examples": ["int *p;", "p = &var;", "*p = 10;"],
+        "related": ["内存管理", "数组"]
+    },
+    "动态内存分配": {
+        "description": "运行时手动分配/释放堆内存",
+        "examples": ["int *arr = malloc(10*sizeof(int));", "free(arr);"],
+        "related": ["指针", "内存泄漏"]
+    },
+    "结构体与联合体": {
+        "description": "自定义复合数据类型（struct成员独立内存，union共享内存）",
+        "examples": ["struct Student { char name[20]; int age; };", "union Data { int i; float f; };"],
+        "related": ["内存对齐", "typedef"]
+    },
+    "文件操作": {
+        "description": "通过文件流进行数据持久化存储",
+        "examples": ["FILE *fp = fopen(\"data.txt\", \"r\");", "fprintf(fp, \"%s\", text);"],
+        "related": ["错误处理", "二进制/文本模式"]
+    },
+    "小型项目": {
+        "description": "综合应用多个知识点构建完整程序",
+        "examples": ["学生管理系统", "简易计算器", "文件加密工具"],
+        "related": ["多文件编程", "Makefile"]
+    },
+    "字符串与字符数组": {
+        "description": "以空字符'\\0'结尾的字符序列，通常用char数组或指针表示",
+        "examples": ["char str[] = \"Hello\";", "strcpy(dest, src);", "strlen(str);"],
+        "related": ["数组", "指针", "标准库函数"]
+    },
+    "枚举类型": {
+        "description": "用户定义的整数常量集合，增强代码可读性",
+        "examples": ["enum Week { Mon, Tue, Wed };", "enum Week day = Mon;"],
+        "related": ["数据类型", "常量"]
+    },
+    "类型定义": {
+        "description": "使用typedef为现有类型创建别名",
+        "examples": ["typedef int Score;", "typedef struct { int x,y; } Point;"],
+        "related": ["结构体", "代码可读性"]
+    },
+    "作用域与生命周期": {
+        "description": "标识符的可见范围和变量存续时间（局部/全局变量）",
+        "examples": ["{ int tmp=0; }", "static int counter;"],
+        "related": ["存储类别", "函数"]
+    },
+    "存储类别": {
+        "description": "指定变量的存储方式(auto/static/extern/register)",
+        "examples": ["auto int x;", "static int count=0;"],
+        "related": ["作用域", "内存管理"]
+    },
+    "预处理器指令": {
+        "description": "编译前处理的指令（宏定义、条件编译等）",
+        "examples": ["#define PI 3.14", "#ifdef DEBUG", "#include \"header.h\""],
+        "related": ["宏展开", "多文件编程"]
+    },
+    "头文件与多文件编程": {
+        "description": "通过头文件声明接口实现模块化开发",
+        "examples": ["#include \"mylib.h\"", "// header.h: void func();"],
+        "related": ["预处理器", "Makefile"]
+    },
+    "递归函数": {
+        "description": "函数直接或间接调用自身实现迭代逻辑",
+        "examples": ["int factorial(int n) { return n*factorial(n-1); }"],
+        "related": ["栈内存", "终止条件"]
+    },
+    "位操作与位字段": {
+        "description": "对二进制位进行操作或定义紧凑数据结构",
+        "examples": ["flags |= 0x01;", "struct { unsigned int flag:1; };"],
+        "related": ["位运算符", "内存优化"]
+    },
+    "错误处理": {
+        "description": "检测和处理运行时异常",
+        "examples": ["if (fp == NULL) perror(\"Error\");", "errno = EINVAL;"],
+        "related": ["文件操作", "返回值"]
+    },
+    "命令行参数": {
+        "description": "通过main函数参数获取程序启动参数",
+        "examples": ["int main(int argc, char *argv[]) {...}"],
+        "related": ["字符串处理", "系统接口"]
+    },
+    "内存对齐与结构体填充": {
+        "description": "编译器优化内存访问的结构体布局规则",
+        "examples": ["#pragma pack(1)", "struct { char c; int i; }; // 占8字节"],
+        "related": ["性能优化", "结构体"]
+    },
+    "const 关键字与常量": {
+        "description": "定义不可修改的变量或指针保护数据",
+        "examples": ["const int MAX=100;", "const char *p = \"immutable\";"],
+        "related": ["指针", "类型安全"]
+    },
+    "volatile 关键字": {
+        "description": "防止编译器优化意外修改的变量（如硬件寄存器）",
+        "examples": ["volatile int *status_reg;"],
+        "related": ["硬件交互", "优化控制"]
+    },
+    "复杂声明解析": {
+        "description": "理解函数指针、指针数组等复合类型声明",
+        "examples": ["int (*funcPtr)(int);", "char *argv[];"],
+        "related": ["typedef", "语法解析"]
+    },
+    "标准库函数": {
+        "description": "C语言内置的常用功能函数集合",
+        "examples": ["strcmp(s1,s2);", "sqrt(2.0);", "time(NULL);"],
+        "related": ["头文件", "系统接口"]
+    },
+    "数据结构基础": {
+        "description": "用C实现基本数据结构（链表/栈/队列）",
+        "examples": ["struct Node { int data; struct Node* next; };", "push(&stack, item);"],
+        "related": ["指针", "动态内存"]
+    },
+        "跳转语句": {
+        "description": "控制程序执行流程的语句（break/continue/goto）",
+        "examples": ["break;", "continue;", "goto label;"],
+        "related": ["循环结构", "条件语句"]
+    },
+    "数组": {
+        "description": "连续内存空间存储相同类型元素的集合",
+        "examples": ["int arr[5];", "arr[0] = 1;", "int matrix[3][3];"],
+        "related": ["指针", "字符串", "动态内存分配"]
+    }
+}
