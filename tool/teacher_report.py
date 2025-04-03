@@ -43,7 +43,7 @@ def validate_analysis_data(results):
     required_keys = {
         'top_weak_points': (list, 3),
         'weak_distribution': (dict, 5),
-        'study_period_dist': (dict, 3),
+        'study_period_dist': (dict, 2),
         'question_stats': (dict, ['mean', 'std']),
         'cluster_summary': (dict, ['total_clusters', 'cluster_dist']),
         'knowledge_network': (dict, ['top_combinations', 'network_density'])
