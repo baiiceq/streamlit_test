@@ -453,7 +453,7 @@ def build_knowledge_network(data, freq, min_cooccurrence=1, max_nodes=20):
                 thickness=15,
                 title='知识点频率',
                 xanchor='left',
-                titleside='right'
+                title_side='right'
             ),
             line=dict(width=2)
         )

@@ -3,6 +3,7 @@ from datetime import datetime,timedelta
 from student.services import ExerciseService
 from tool.study_report import ExamGenerator
 import os
+from database import Database
 
 class ExerciseComponent:
     def __init__(self, student_id):
@@ -12,7 +13,13 @@ class ExerciseComponent:
     def show_exam_interface(self):
         st.title("答题系统")
         exam_generator = ExamGenerator(os.environ.get("DASHSCOPE_API_KEY"))
-        default_knowledge = st.session_state.get("keywords", "牛顿第一定律, 惯性")
+        knowledge_points = Database.load_knowledge_points_by_date(self.student_id, datetime.now() - timedelta(weeks=1), datetime.now())
+        x = []
+        for points in knowledge_points:
+            for point in points[1]:
+                x.append(point)
+        knowledge_points = list(set(x))
+        default_knowledge = ",".join(knowledge_points)
         weak_knowledge_input = st.text_input("请输入学生薄弱知识点（用逗号分隔）", default_knowledge)
         knowledge_list = [k.strip() for k in weak_knowledge_input.split(",") if k.strip()]
         selected_knowledge = st.multiselect("请选择知识点", options=knowledge_list, default=knowledge_list)

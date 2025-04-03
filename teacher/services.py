@@ -1,6 +1,60 @@
 import streamlit as st
 from student.services import ReportService
 from datetime import datetime,timedelta
+import pandas as pd
+
+
+class ListService:
+    def get_class_data(self, start_date, end_date):
+        selected_class = st.session_state.selected_class
+        json_text = []
+        for student_id in selected_class.students:
+            dict = {}
+            dict["name"] = student_id
+            dict["weak_points"] = self.get_student_weak_points(student_id, start_date, end_date)
+            dict["study_period"] = self.get_student_study_period(student_id, start_date, end_date)
+            dict["question_count"] = self.get_student_questions_cnt(student_id, start_date, end_date)
+            json_text.append(dict)
+
+        data = pd.DataFrame(json_text)
+        return data
+
+
+    @classmethod
+    def get_student_weak_points(self, student_id, start_date, end_date):
+        report_service = ReportService(student_id)
+        report_service.report_service_init(start_date, end_date)
+        weak_points = [item[0] for item in report_service.freq.most_common(5)]
+
+        return weak_points
+
+    @classmethod
+    def get_student_study_period(self, student_id, start_date, end_date):
+        report_service = ReportService(student_id)
+        report_service.report_service_init(start_date, end_date)
+        report_service.df['timestamp'] = pd.to_datetime(report_service.df['timestamp'])
+        report_service.df['hour'] = report_service.df['timestamp'].dt.hour
+
+        def get_time_period(hour):
+            if 5 <= hour < 12:
+                return '上午 (5:00-11:59)'
+            elif 12 <= hour < 18:
+                return '下午 (12:00-17:59)'
+            else:
+                return '晚上 (18:00-4:59)'
+
+        report_service.df['time_period'] = report_service.df['hour'].apply(get_time_period)
+        period_counts = report_service.df['time_period'].value_counts().reset_index()
+        period_counts.columns = ['时间段', '提问数量']
+
+        most_active_period = period_counts.iloc[0]['时间段']
+        return most_active_period
+
+    @classmethod
+    def get_student_questions_cnt(self, student_id, start_date, end_date):
+        report_service = ReportService(student_id)
+        report_service.report_service_init(start_date, end_date)
+        return len(report_service.knowledge_points)
 
 class DetailService:
 

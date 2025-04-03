@@ -134,14 +134,11 @@ class LearningReportGenerator:
             return None, None
         formatted_logs = self.format_conversation(logs)
         analysis_output = self.generate_analysis(formatted_logs)
-        analysis_output = "\n".join(analysis_output.splitlines()[1:-1])
         keywords_output = self.extract_keywords(analysis_output)
         search_query = f"针对薄弱知识点 {keywords_output} 的学习资源推荐"
         online_resources = self.search_online_resources(search_query)
         suggestions_output = self.generate_suggestions(analysis_output, online_resources)
-        suggestions_output = "\n".join(suggestions_output.splitlines()[1:-1])
         planning_output = self.generate_planning(analysis_output)
-        planning_output = "\n".join(planning_output.splitlines()[1:-1])
         final_report = f"""
 # 学习报告
 ## 一、学习行为分析
@@ -170,22 +167,47 @@ class ExamGenerator:
 
     def generate_exam_questions(self, knowledge_points, question_types, question_count):
         """根据知识点、题型和数量生成试题"""
-        exam_prompt_template = """
-        请根据以下要求生成试题：
-        知识点：{knowledge_points}
-        题型：{question_types}
-        题目数量：{question_count}
-        格式要求：
-        1. 如果题型中有判断题，则判断题必须包含明确的正误判断，答案只能写"对"或"错"
-        2. 如果题型中有选择题，选择题选项请用A. B. C. D.开头
-        3. 所有题型必须包含题目、答案、解析三部分
-        示例：
-        **题目**：水的沸点是100摄氏度（标准大气压下）
-        **答案**：对
-        **解析**：在标准大气压（1atm）下，水的沸点是100℃...
-        请以 Markdown 格式输出试题列表，每道题之间用分隔线（---）隔开。
-        请严格遵循上面对知识点、题型、题目数量的限制与要求
-        """
+        exam_prompt_template = """请根据以下要求生成c语言试题：
+知识点：{knowledge_points}
+题型：{question_types}
+题目数量：{question_count}
+
+严格按照以下JSON格式输出：
+[
+  {{
+    "question": "题干内容（包含任何代码）",
+    "options": ["A.选项1", "B.选项2", ...], // 选择题/判断题必填，其他题型为null
+    "answer": "正确答案", // 选择题用大写字母，判断题用"对/错"
+    "explanation": "答案解析",
+    "type": "题型名称"
+  }}
+]
+
+生成规则：
+1. 题干中的代码直接包含在question字段中，不要放在options里
+2. 选择题选项必须用A. B. C. D.开头
+3. 判断题必须有且只有"对"和"错"两个选项
+4. 问答题的options设为null
+5. 确保生成严格有效的JSON格式
+
+示例：
+[
+  {{
+    "question": "以下Python代码的输出是什么？\\nprint(len({{'a': 1, 'b': 2}}))",
+    "options": ["A. 1", "B. 2", "C. 报错", "D. 4"],
+    "answer": "B",
+    "explanation": "字典的len()方法返回键的数量",
+    "type": "选择题"
+  }},
+  {{
+    "question": "HTTP协议是无状态的",
+    "options": ["对", "错"],
+    "answer": "对",
+    "explanation": "HTTP协议本身不保存客户端状态",
+    "type": "判断题"
+  }}
+]"""
+
         exam_prompt = PromptTemplate(
             input_variables=["knowledge_points", "question_types", "question_count"],
             template=exam_prompt_template
@@ -198,40 +220,76 @@ class ExamGenerator:
         )
 
     def parse_exam_questions(self, text):
-        """解析生成的试题文本"""
-        questions = []
-        pattern = r'\*\*题目\*\*：(.*?)\n(.*?)\*\*答案\*\*：(.*?)\n\*\*解析\*\*：(.*?)\n---'
-        matches = re.findall(pattern, text, re.DOTALL)
-        for match in matches:
-            question = match[0].strip()
-            options_text = match[1].strip()
-            answer = match[2].strip()
-            explanation = match[3].strip()
+        """解析生成的试题JSON文本"""
+        try:
+            # 提取JSON代码块
+            json_str = re.search(r'```json\s*([\s\S]*?)\s*```', text)
+            if json_str:
+                text = json_str.group(1).strip()
 
-            if "A." in options_text and "B." in options_text:
-                question_type = "选择题"
-                options = [opt.strip() for opt in options_text.split('\n') if opt.strip()]
-                answer = answer.split(".")[0].strip() if "." in answer else answer
-            elif answer.lower() in ["对", "正确", "true", "yes", "√"]:
-                question_type = "判断题"
-                answer = "对"
-                options = ["对", "错"]
-            else:
-                question_type = "问答题"
-                options = None
+            questions = json.loads(text)
+            processed = []
 
-            questions.append({
-                "question": question,
-                "options": options,
-                "answer": answer,
-                "explanation": explanation,
-                "type": question_type
-            })
-        return questions
+            for q in questions:
+                # 字段校验
+                required_fields = ["question", "answer", "explanation", "type"]
+                if not all(field in q for field in required_fields):
+                    continue
+
+                # 答案标准化
+                q_type = q["type"].strip()
+                answer = str(q["answer"]).strip()
+                options = q.get("options")
+
+                # 处理选择题
+                if q_type == "选择题":
+                    if not options or len(options) < 2:
+                        continue
+                    # 提取答案字母
+                    answer = re.sub(r'[^A-Da-d]', '', answer).upper()
+                    if not answer:
+                        continue
+                    # 标准化选项前缀
+                    options = [f"{chr(65 + i)}. {opt.split('. ')[1]}"
+                               for i, opt in enumerate(options[:4])]
+
+                # 处理判断题
+                elif q_type == "判断题":
+                    answer = "对" if answer.lower() in ["对", "正确", "true", "yes", "√"] else "错"
+                    options = ["对", "错"]
+
+                # 处理问答题
+                else:
+                    options = None
+
+                processed.append({
+                    "question": q["question"].strip(),
+                    "options": options,
+                    "answer": answer,
+                    "explanation": q["explanation"].strip(),
+                    "type": q_type
+                })
+
+            return processed
+
+        except json.JSONDecodeError:
+            st.error("试题解析失败，请重试或检查提示词")
+            return []
+        except Exception as e:
+            st.error(f"解析异常：{str(e)}")
+            return []
+
 import streamlit as st
 
 # 主函数
 def main():
+    # 初始化session state
+    if "report_history" not in st.session_state:
+        st.session_state.report_history = []
+    if "questions" not in st.session_state:
+        st.session_state.questions = []
+    if "user_answers" not in st.session_state:
+        st.session_state.user_answers = []
     st.sidebar.title("导航")
     page = st.sidebar.radio("选择页面", ("学习报告生成", "试题生成"))
     api_key = 'sk-e2492dea19b945059a9a05abb4d0fc0b'  # 请替换为实际 API 密钥
@@ -274,40 +332,121 @@ def main():
                         st.download_button("下载 PDF", data=pdf_output, file_name=f"{report_id}.pdf",
                                            mime="application/pdf")
     elif page == "试题生成":
-        st.title("答题系统")
+        st.title("智能试题生成系统")
         exam_generator = ExamGenerator(api_key)
-        default_knowledge = st.session_state.get("keywords", "牛顿第一定律, 惯性")
-        weak_knowledge_input = st.text_input("请输入学生薄弱知识点（用逗号分隔）", default_knowledge)
-        knowledge_list = [k.strip() for k in weak_knowledge_input.split(",") if k.strip()]
-        selected_knowledge = st.multiselect("请选择知识点", options=knowledge_list, default=knowledge_list)
-        question_types = ["选择题", "问答题", "程序设计题", "判断题"]
-        selected_types = st.multiselect("请选择题型", options=question_types, default=["选择题", "判断题"])
-        question_count = st.slider("选择试题数量", min_value=1, max_value=20, value=5)
-        if st.button("生成试题"):
-            if not selected_knowledge or not selected_types:
+
+        # 知识点输入
+        col1, col2 = st.columns([3, 2])
+        with col1:
+            default_knowledge = st.session_state.get("keywords", "Python基础, 数据结构")
+            knowledge_input = st.text_input("输入知识点（逗号分隔）", default_knowledge)
+            knowledge_list = [k.strip() for k in knowledge_input.split(",") if k.strip()]
+
+        # 题型和数量选择
+        with col2:
+            question_types = st.multiselect(
+                "选择题型",
+                options=["选择题", "判断题", "问答题", "编程题"],
+                default=["选择题", "判断题"]
+            )
+            question_count = st.slider("题目数量", 1, 20, 5)
+
+        # 生成按钮
+        if st.button("生成试题", help="点击生成个性化试题"):
+            if not knowledge_list or not question_types:
                 st.error("请至少选择一个知识点和题型！")
             else:
                 with st.spinner("正在生成试题，请稍候..."):
                     exam_text = exam_generator.generate_exam_questions(
-                        ", ".join(selected_knowledge),
-                        ", ".join(selected_types),
+                        ", ".join(knowledge_list),
+                        ", ".join(question_types),
                         question_count
                     )
                     questions = exam_generator.parse_exam_questions(exam_text)
-                    st.session_state["questions"] = questions
-                    st.session_state["user_answers"] = [None] * len(questions)
-                    st.success("试题生成完成，请开始作答！")
+                    if questions:
+                        st.session_state.questions = questions
+                        st.session_state.user_answers = [None] * len(questions)
+                        st.success("试题生成成功！")
+                    else:
+                        st.error("试题生成失败，请调整参数后重试")
 
-        if "questions" in st.session_state and st.session_state["questions"]:
-            st.markdown("### 试题列表")
-            for i, q in enumerate(st.session_state["questions"]):
-                st.markdown(f"**第 {i + 1} 题**（{q['type']}）：{q['question']}")
-                if q["type"] == "选择题":
-                    st.session_state["user_answers"][i] = st.radio("选项", q["options"], key=f"q{i}")
-                elif q["type"] == "判断题":
-                    st.session_state["user_answers"][i] = st.radio("判断", q["options"], key=f"q{i}")
-                else:
-                    st.session_state["user_answers"][i] = st.text_input("答案", key=f"q{i}")
+        # 显示试题
+        if st.session_state.questions:
+            st.divider()
+            st.subheader("生成试题列表")
+
+            for i, q in enumerate(st.session_state.questions):
+                with st.expander(f"第 {i + 1} 题（{q['type']}）", expanded=True):
+                    st.markdown(f"**题干**：{q['question']}")
+
+                    # 选项显示
+                    if q["options"]:
+                        options = q["options"]
+                        if q["type"] == "选择题":
+                            user_ans = st.radio(
+                                "选项",
+                                options,
+                                key=f"q_{i}",
+                                index=options.index(q["answer"]) if q["answer"] in options else 0
+                            )
+                        else:  # 判断题
+                            user_ans = st.radio(
+                                "判断",
+                                options,
+                                key=f"q_{i}",
+                                index=options.index(q["answer"])
+                            )
+                        st.session_state.user_answers[i] = user_ans[0] if q["type"] == "选择题" else user_ans
+                    else:
+                        st.session_state.user_answers[i] = st.text_area(
+                            "填写答案",
+                            key=f"q_{i}",
+                            height=100
+                        )
+
+            # 提交和批改
+            if st.button("提交试卷"):
+                correct_count = 0
+                results = []
+
+                for i, q in enumerate(st.session_state.questions):
+                    user_ans = st.session_state.user_answers[i]
+                    correct = False
+
+                    if q["type"] == "选择题":
+                        correct = (user_ans.upper() == q["answer"].upper())
+                    elif q["type"] == "判断题":
+                        correct = (user_ans == q["answer"])
+                    else:
+                        # 简答题简单匹配关键词
+                        keywords = re.findall(r'\w+', q["answer"].lower())
+                        user_words = re.findall(r'\w+', user_ans.lower())
+                        correct = len(set(keywords) & set(user_words)) / len(keywords) > 0.6
+
+                    if correct:
+                        correct_count += 1
+
+                    results.append({
+                        "status": "正确" if correct else "错误",
+                        "user_answer": user_ans,
+                        "correct_answer": q["answer"],
+                        "explanation": q["explanation"]
+                    })
+
+                # 显示结果
+                st.divider()
+                st.subheader(f"测验结果：{correct_count}/{len(results)} 正确")
+
+                for i, result in enumerate(results):
+                    with st.expander(f"第 {i + 1} 题解析", expanded=False):
+                        st.markdown(f"""
+                        - 你的答案：`{result['user_answer']}`
+                        - 正确答案：`{result['correct_answer']}`
+                        - 解析：{result['explanation']}
+                        """)
+                        st.markdown(
+                            f"**结果**：<span style='color: {'green' if result['status'] == '正确' else 'red'}'>{result['status']}</span>",
+                            unsafe_allow_html=True)
 
 if __name__ == "__main__":
     main()

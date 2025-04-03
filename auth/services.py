@@ -1,7 +1,4 @@
 # auth/services.py
-import random
-import string
-from datetime import datetime
 from passlib.context import CryptContext
 from auth.models import User
 import random
@@ -10,8 +7,6 @@ from email.mime.text import MIMEText
 from email.utils import formataddr
 from database import Database
 
-# 创建密码加密的上下文
-pwd_context = CryptContext(schemes=["bcrypt"], deprecated="auto")
 
 class AuthSystem:
     @staticmethod
@@ -67,9 +62,6 @@ class AuthSystem:
         if user_data["role"] == "student" and User.find_by_student_id(db, user_data.get("student_id")):
             return False, "学号已被注册"
 
-        # 注册用户
-        user_data["password_hash"] = pwd_context.hash(user_data["password"])
-
         Database.create_user(user_data)
         return True, "注册成功，请登录"
 
@@ -80,7 +72,7 @@ class AuthSystem:
         if not user:
             return None, "用户名不存在"
 
-        if not pwd_context.verify(password, user["password_hash"]):
+        if not password == user["password"]:
             return None, "密码错误"
 
         return user, "登录成功"
